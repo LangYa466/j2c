@@ -32,7 +32,7 @@ public class ClInitSpecialMethodProcessor implements SpecialMethodProcessor {
         instructions.add(new LdcInsnNode(context.classIndex));
         instructions.add(new LdcInsnNode(Type.getObjectType(context.clazz.name)));
 
-        // 添加调用JNICLoader.registerNativesForClass方法的指令
+        // 添加调用JNICLoader.registerNativesForClass
         instructions.add(new MethodInsnNode(
                 Opcodes.INVOKESTATIC,
                 context.obfuscator.getNativeDir() + "/JNICLoader",

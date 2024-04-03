@@ -1,7 +1,7 @@
 package cc.nuym.jnic.utils;
 
-import cc.nuym.jnic.annotations.Native;
-import cc.nuym.jnic.annotations.NotNative;
+import dev.jnic.annotations.Jnic;
+import dev.jnic.annotations.NoJnic;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
@@ -10,8 +10,8 @@ import org.objectweb.asm.tree.MethodNode;
 import java.util.List;
 
 public class ClassMethodFilter {
-    private static final String NATIVE_ANNOTATION_DESC = Type.getDescriptor(Native.class);
-    private static final String NOT_NATIVE_ANNOTATION_DESC = Type.getDescriptor(NotNative.class);
+    private static final String NATIVE_ANNOTATION_DESC = Type.getDescriptor(Jnic.class);
+    private static final String NOT_NATIVE_ANNOTATION_DESC = Type.getDescriptor(NoJnic.class);
 
     private final List<String> blackList;
     private final List<String> whiteList;

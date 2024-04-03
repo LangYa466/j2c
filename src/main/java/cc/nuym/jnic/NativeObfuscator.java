@@ -54,46 +54,12 @@ public class NativeObfuscator {
         this.methodProcessor = new MethodProcessor(this);
     }
 
-    public void process(Path inputJarPath, Path output, Config config, List<Path> inputLibs, String plainLibName, boolean useAnnotations) throws IOException {
+    public void process(Path inputJarPath, Path output, List<Path> inputLibs, String plainLibName, boolean useAnnotations) throws IOException {
         Path outputDir;
         ArrayList<Path> libs = new ArrayList<>(inputLibs);
         libs.add(inputJarPath);
         ArrayList<String> whiteList = new ArrayList<>();
-        if (config.getIncludes() != null) {
-            for (Match match : config.getIncludes()) {
-                StringBuilder stringBuilder = new StringBuilder();
-                if (StringUtils.isNotEmpty(match.getClassName())) {
-                    stringBuilder.append(match.getClassName().replaceAll("\\.", "/"));
-                }
-                if (StringUtils.isNotEmpty(match.getMethodName())) {
-                    stringBuilder.append("#").append(match.getMethodName());
-                    if (StringUtils.isNotEmpty(match.getMethodDesc())) {
-                        stringBuilder.append("!").append(match.getMethodDesc());
-                    }
-                } else if (StringUtils.isNotEmpty(match.getMethodDesc())) {
-                    stringBuilder.append("#**!").append(match.getMethodDesc());
-                }
-                whiteList.add(stringBuilder.toString());
-            }
-        }
         ArrayList<String> blackList = new ArrayList<>();
-        if (config.getExcludes() != null) {
-            for (Match include : config.getExcludes()) {
-                StringBuilder stringBuilder = new StringBuilder();
-                if (StringUtils.isNotEmpty(include.getClassName())) {
-                    stringBuilder.append(include.getClassName().replaceAll("\\.", "/"));
-                }
-                if (StringUtils.isNotEmpty(include.getMethodName())) {
-                    stringBuilder.append("#").append(include.getMethodName());
-                    if (StringUtils.isNotEmpty(include.getMethodDesc())) {
-                        stringBuilder.append("!").append(include.getMethodDesc());
-                    }
-                } else if (StringUtils.isNotEmpty(include.getMethodDesc())) {
-                    stringBuilder.append("#**!").append(include.getMethodDesc());
-                }
-                blackList.add(stringBuilder.toString());
-            }
-        }
         ClassMethodFilter classMethodFilter = new ClassMethodFilter(blackList, whiteList, useAnnotations);
         ClassMetadataReader metadataReader = new ClassMetadataReader(libs.stream().map(x -> {
             try {
@@ -131,7 +97,7 @@ public class NativeObfuscator {
             System.out.println("Anylysing classes...");
             String nativeNonDir = "dev/jnic/";
 
-            this.nativeDir = nativeNonDir + NativeObfuscator.getRandomString();
+            this.nativeDir = nativeNonDir + getRandomString();
 
             this.bootstrapMethodsPool = new BootstrapMethodsPool(this.nativeDir);
             this.staticClassProvider = new InterfaceStaticClassProvider(this.nativeDir);
@@ -283,8 +249,8 @@ public class NativeObfuscator {
                 byte[] arrayOfByte = new byte[2048];
                 Path datFile;
                 try {
+                    // loader build rename to Loader.zip
                     InputStream inputStream = NativeObfuscator.class.getResourceAsStream("/Loader.zip");
-                    //InputStream inputStream = NativeObfuscator.class.getResourceAsStream("/fakejnic.zip");
                     if (inputStream == null) {
                         throw new UnsatisfiedLinkError("Loader.zip");
                     }
@@ -334,7 +300,6 @@ public class NativeObfuscator {
 
                             ClassNode resultLoaderClass = new ClassNode();
                             String originalLoaderClassName = rawClassNode.name;
-
 
                             String loaderClassName = nativeDir + "/" + originalLoaderClassName;
                             rawClassNode.accept(new ClassRemapper(resultLoaderClass, new Remapper() {
@@ -427,110 +392,62 @@ public class NativeObfuscator {
             if (StringUtils.isEmpty(plainLibName)) {
                 System.out.println("Compile C Objects");
                 ArrayList<String> libNames = new ArrayList<>();
-                for (String s : config.getTargets()) {
-                    String libName;
-                    String platformTypeName;
-                    String osName;
-                    switch (s) {
-                        case "WINDOWS_X86_64": {
-                            osName = "windows";
-                            platformTypeName = "x86_64";
-                            libName = "x64-windows.dll";
-                            break;
-                        }
-                        case "MACOS_X86_64": {
-                            osName = "macos";
-                            platformTypeName = "x86_64";
-                            libName = "x64-macos.dylib";
-                            break;
-                        }
-                        case "LINUX_X86_64": {
-                            osName = "linux";
-                            platformTypeName = "x86_64";
-                            libName = "x64-linux.so";
-                            break;
-                        }
-                        case "WINDOWS_AARCH64": {
-                            osName = "windows";
-                            platformTypeName = "aarch64";
-                            libName = "arm64-windows.dll";
-                            break;
-                        }
-                        case "MACOS_AARCH64": {
-                            osName = "macos";
-                            platformTypeName = "aarch64";
-                            libName = "arm64-macos.dylib";
-                            break;
-                        }
-                        case "LINUX_AARCH64": {
-                            osName = "linux";
-                            platformTypeName = "aarch64";
-                            libName = "arm64-linux.so";
-                            break;
-                        }
-                        default: {
-                            platformTypeName = "";
-                            osName = "";
-                            libName = "";
-                        }
+
+                String libName;
+                String platformTypeName;
+                String osName;
+
+                osName = "windows";
+                platformTypeName = "x86_64";
+                libName = "x64-windows.dll";
+
+
+                String currentOSName = "";
+                if (SetupManager.isWindows()) {
+                    currentOSName = "windows";
+                }
+                String currentPlatformTypeName;
+                switch (System.getProperty("os.arch").toLowerCase()) {
+                    case "x86_64":
+                    case "amd64": {
+                        currentPlatformTypeName = "x86_64";
+                        break;
                     }
-                    String currentOSName = "";
-                    if (SetupManager.isWindows()) {
-                        currentOSName = "windows";
+                    case "aarch64": {
+                        currentPlatformTypeName = "aarch64";
+                        break;
                     }
-                    if (SetupManager.isLinux()) {
-                        currentOSName = "linux";
+                    case "x86": {
+                        currentPlatformTypeName = "i386";
+                        break;
                     }
-                    if (SetupManager.isMacOS()) {
-                        currentOSName = "macos";
+                    default: {
+                        currentPlatformTypeName = "";
                     }
-                    String currentPlatformTypeName;
-                    switch (System.getProperty("os.arch").toLowerCase()) {
-                        case "x86_64":
-                        case "amd64": {
-                            currentPlatformTypeName = "x86_64";
-                            break;
-                        }
-                        case "aarch64": {
-                            currentPlatformTypeName = "aarch64";
-                            break;
-                        }
-                        case "x86": {
-                            currentPlatformTypeName = "i386";
-                            break;
-                        }
-                        default: {
-                            currentPlatformTypeName = "";
-                        }
-                    }
-                    //System.out.println("Compiling:" + target);
-                    String compilePath = System.getProperty("user.dir") + separator + "zig-" + currentOSName + "-" + currentPlatformTypeName + "-0.9.1" + separator + "zig" + (SetupManager.isWindows() ? ".exe" : "");
-                    if (Files.exists(Paths.get(compilePath))) {
-                        ProcessHelper.ProcessResult compileRunresult = ProcessHelper.run(outputDir, 600000L, Arrays.asList(compilePath, "cc", "-O2", "-fno-sanitize=undefined", "-funroll-loops", "-target", platformTypeName + "-" + osName + "-gnu", "-fPIC", "-shared", "-s", "-fvisibility=hidden", "-fvisibility-inlines-hidden", "-I." + separator + "cpp", "-o." + separator + "build" + separator + "lib" + separator + libName, "." + separator + "cpp" + separator + "jnic.c"));
-                        //System.out.println(String.format("Compilation time %dms", compileRunresult.execTime));
-                        libNames.add(libName);
-                        compileRunresult.check("zig build");
-                        continue;
-                    }
-                    Path parent = Paths.get(System.getProperty("user.dir")).getParent();
-                    ProcessHelper.ProcessResult compileRunresult = ProcessHelper.run(outputDir, 600000L, Arrays.asList(parent.toFile().getAbsolutePath() + separator + "zig-" + currentOSName + "-" + currentPlatformTypeName + "-0.9.1" + separator + "zig" + (SetupManager.isWindows() ? ".exe" : ""), "cc", "-O2", "-fno-sanitize=undefined", "-funroll-loops", "-target", platformTypeName + "-" + osName + "-gnu", "-fPIC", "-shared", "-s", "-fvisibility=hidden", "-fvisibility-inlines-hidden", "-I." + separator + "cpp", "-o." + separator + "build" + separator + "lib" + separator + libName, "." + separator + "cpp" + separator + "jnic.c"));
+                }
+                //System.out.println("Compiling:" + target);
+                String compilePath = System.getProperty("user.dir") + separator + "zig-" + currentOSName + "-" + currentPlatformTypeName + "-0.9.1" + separator + "zig" + (SetupManager.isWindows() ? ".exe" : "");
+                if (Files.exists(Paths.get(compilePath))) {
+                    ProcessHelper.ProcessResult compileRunresult = ProcessHelper.run(outputDir, 600000L, Arrays.asList(compilePath, "cc", "-O2", "-fno-sanitize=undefined", "-funroll-loops", "-target", platformTypeName + "-" + osName + "-gnu", "-fPIC", "-shared", "-s", "-fvisibility=hidden", "-fvisibility-inlines-hidden", "-I." + separator + "cpp", "-o." + separator + "build" + separator + "lib" + separator + libName, "." + separator + "cpp" + separator + "jnic.c"));
                     //System.out.println(String.format("Compilation time %dms", compileRunresult.execTime));
                     libNames.add(libName);
                     compileRunresult.check("zig build");
+                    return;
                 }
+                Path parent = Paths.get(System.getProperty("user.dir")).getParent();
+                ProcessHelper.ProcessResult compileRunresult = ProcessHelper.run(outputDir, 600000L, Arrays.asList(parent.toFile().getAbsolutePath() + separator + "zig-" + currentOSName + "-" + currentPlatformTypeName + "-0.9.1" + separator + "zig" + (SetupManager.isWindows() ? ".exe" : ""), "cc", "-O2", "-fno-sanitize=undefined", "-funroll-loops", "-target", platformTypeName + "-" + osName + "-gnu", "-fPIC", "-shared", "-s", "-fvisibility=hidden", "-fvisibility-inlines-hidden", "-I." + separator + "cpp", "-o." + separator + "build" + separator + "lib" + separator + libName, "." + separator + "cpp" + separator + "jnic.c"));
+                //System.out.println(String.format("Compilation time %dms", compileRunresult.execTime));
+                libNames.add(libName);
+                compileRunresult.check("zig build");
+
                 System.out.println("Compress native libraries");
                 Enter(outputDir);
                 DataTool.compress(outputDir + separator + "build" + separator + "lib", outputDir + separator + "data.dat", Integer.getInteger("level", 1));
-                System.out.println("Writing to file out "+outputName);
-                Path path = Paths.get(outputDir + separator + "data.dat");
-                Util.writeEntry(out,  "dev/jnic/lib/40db034e-902c-4d1b-a58d-b847a6cc845a.dat", Files.readAllBytes(path));
                 try {
-                    //System.out.println("清理临时文件");
+                    System.out.println("清理临时文件");
                     FileUtils.clearDirectory(outputDir + separator + "cpp");
                     FileUtils.clearDirectory(outputDir + separator + "build");
-                    Files.deleteIfExists(path);
-                }
-                catch (Exception exception) {
+                } catch (Exception exception) {
                     // empty catch block
                 }
             }

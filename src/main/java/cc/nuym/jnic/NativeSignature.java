@@ -71,7 +71,7 @@ public class NativeSignature {
      */
     public static String getJNICompatibleName(String name) {
         StringBuilder sb = new StringBuilder();
-        NativeSignature.getJNICompatibleName(name, sb);
+        getJNICompatibleName(name, sb);
         return sb.toString();
     }
 }
